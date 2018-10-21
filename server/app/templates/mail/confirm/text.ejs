@@ -1,0 +1,11 @@
+<%- include('../common/header.ejs') %>
+Hello,
+
+Thank you for signing up on <%- config.siteName %>! Before you can start training some models, please confirm your email address by pasting the link below into your browser:
+
+<%- config.host + '/confirm/' + activationKey %>
+
+If you did not request this email, please just ignore and delete it. Otherwise, thanks again for signing up and giving us a try!
+
+Cheers,
+The <%- config.siteName %> team
