@@ -1,24 +1,22 @@
-import { inject } from 'mobx-react';
+import { observable } from 'mobx';
+import { AuthStore, AuthStoreData } from './Auth';
 
-interface MainStoreData {}
+interface MainStoreData {
+  auth: AuthStoreData;
+}
 
 /** A store to rule them all: top-level store */
 export class MainStore {
-  constructor(data?: MainStoreData) {
-    // Do nothing
+  @observable
+  auth: AuthStore;
+
+  constructor(data?: MainStoreData | null) {
+    if (!data) {
+      return;
+    }
+
+    this.auth = new AuthStore(data.auth);
   }
 }
 
 export type InjectedProps = {};
-
-function injecter({ store }: { store: MainStore }) {
-  return {};
-}
-
-/**
- * Connect props and dispatcher for accessing and
- * retrieving travelers tied to an account
- */
-export const withMain = inject(injecter);
-
-export default { MainStore, withMain };

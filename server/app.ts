@@ -2,12 +2,13 @@ import express, { Request, Response, NextFunction } from 'express';
 import path from 'path';
 import morgan from 'morgan';
 import cookieParser from 'cookie-parser';
-import bodyParser from 'body-parser';
+import passport from 'passport';
 import session from 'express-session';
 import MySQLSessionStore from 'express-mysql-session';
 import routes from './app/main';
-import config from './app/config';
-import logger from './app/libs/logger';
+import config from './config';
+import { logger } from './libs/logger';
+import { initializePassport } from './libs/auth';
 
 const app = express();
 
@@ -27,13 +28,7 @@ if (process.env.NODE_REQUEST_LOG) {
   );
 }
 
-app.use(bodyParser.json({ limit: '16mb' }));
-app.use(
-  bodyParser.urlencoded({
-    extended: true,
-    limit: '1mb',
-  }),
-);
+app.use(express.json({ limit: '1MB' }));
 app.use(cookieParser());
 app.use(express.static(path.join(__dirname, 'public')));
 
@@ -57,6 +52,10 @@ app.use(
   }),
 );
 
+initializePassport(passport);
+app.use(passport.initialize());
+app.use(passport.session());
+
 routes(app);
 
 // / catch 404 and forward to error handler
@@ -73,6 +72,7 @@ app.use((req, res, next) => {
 
 if (app.get('env') === 'development') {
   app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.error(err.stack);
     res.status(err.status || 500);
     logger.error('500 error', {
       message: err.message,
@@ -80,7 +80,7 @@ if (app.get('env') === 'development') {
       title: 'error',
     });
 
-    res.render('error', {
+    res.json({
       message: err.message,
       error: err,
       title: 'error',

@@ -9,27 +9,21 @@
   <meta http-equiv="X-UA-Compatible" content="IE=edge">
   <meta name="viewport" content="width=device-width, initial-scale=1">
 
-  <link rel="stylesheet" type="text/css" href="/assets/styles.css">
+  <link rel="stylesheet" type="text/css" href="/assets/main.css">
 
   <link rel="icon" href="/assets/favicon.png">
   <link rel="apple-touch-icon-precomposed" href="/assets/favicon.png">
 
-  <meta property="og:description" content="REPLACE THIS">
+  <meta property="og:description" content="A description of mysite">
 </head>
 
 <body class="<%- bodyClass %>">
-  <div id="react-main">
-    <%- react %>
-  </div>
+  <div id="react-main"><%- react %></div>
 
   <script>
     window.__MOBX_STATE__ = <%- storeJSON %>;
   </script>
-  <script src="/js/vendor.js"></script>
-  <script src="/js/web.js"></script>
-
-  <!-- Spreedly for payments -->
-  <script src="https://core.spreedly.com/iframe/iframe-v1.min.js"></script>
+  <script src="/js/main.js"></script>
 </body>
 
 </html>

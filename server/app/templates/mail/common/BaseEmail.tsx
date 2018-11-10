@@ -1,7 +1,4 @@
-// @flow
 import React, { ReactNode } from 'react';
-
-/* eslint-disable react/no-danger */
 
 type Props = {
   config: {

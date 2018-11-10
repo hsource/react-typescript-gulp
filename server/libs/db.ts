@@ -1,6 +1,6 @@
 import Sequelize, { Options } from 'sequelize';
-import config from './config';
-import logger from './libs/logger';
+import config from '../config';
+import { logger } from './logger';
 
 const options: Options = {
   logging: false,

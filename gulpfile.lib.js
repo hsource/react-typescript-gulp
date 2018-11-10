@@ -1,26 +1,61 @@
-const babelify = require('babelify');
-const browserify = require('browserify');
-const babel = require('gulp-babel');
 const gulp = require('gulp');
+const babel = require('gulp-babel');
 const cache = require('gulp-cached');
-const livereload = require('gulp-livereload');
+const gulpIf = require('gulp-if');
 const nodemon = require('gulp-nodemon');
 const rev = require('gulp-rev');
 const sass = require('gulp-sass');
 const sourcemaps = require('gulp-sourcemaps');
 const ts = require('gulp-typescript');
-const path = require('path');
-const tinyify = require('tinyify');
-const tsify = require('tsify');
+const webpack = require('webpack-stream');
+const webpackLib = require('webpack');
+const through = require('through2');
 const buffer = require('vinyl-buffer');
 const source = require('vinyl-source-stream');
 const watchify = require('watchify');
+const rsync = require('gulp-rsync');
+const revReplace = require('gulp-rev-replace');
+const fs = require('fs');
+
+const babelify = require('babelify');
+const browserify = require('browserify');
+const tinyify = require('tinyify');
+const tsify = require('tsify');
+
+const autoprefixer = require('autoprefixer');
+const ExtraWatchWebpackPlugin = require('extra-watch-webpack-plugin');
+const AntdScssThemePlugin = require('antd-scss-theme-plugin');
+const MiniCssExtractPlugin = require('mini-css-extract-plugin');
+// const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
+const OptimizeCSSAssetsPlugin = require('optimize-css-assets-webpack-plugin');
+const UglifyJsPlugin = require('uglifyjs-webpack-plugin');
 
 const tsProject = ts.createProject('tsconfig.json');
+
+const browsersListBrowsers = ['>0.5% in US', 'not Android >0'];
 
 function handleError(error) {
   console.error(error);
   this.emit('end');
+}
+
+function createCheckServerJSTask({
+  name,
+  globs,
+  destination,
+  serverWatchGlobs = undefined,
+}) {
+  if (serverWatchGlobs) {
+    serverWatchGlobs[name] = globs;
+  }
+
+  gulp.task(name, () => {
+    return gulp
+      .src(globs)
+      .pipe(tsProject())
+      .on('error', handleError)
+      .pipe(gulp.dest(destination));
+  });
 }
 
 function createBuildServerJSTask({
@@ -28,50 +63,195 @@ function createBuildServerJSTask({
   globs,
   destination,
   serverWatchGlobs = undefined,
-  checkTypescript = false,
 }) {
   if (serverWatchGlobs) {
     serverWatchGlobs[name] = globs;
   }
 
-  gulp.task(name, function() {
-    let task = gulp
+  gulp.task(name, () => {
+    return gulp
       .src(globs)
       .pipe(cache(name))
-      .pipe(sourcemaps.init());
-
-    if (checkTypescript) {
-      task = task.pipe(tsProject());
-    }
-
-    return task
-      .pipe(
-        babel({
-          presets: [
-            '@babel/preset-typescript',
-            '@babel/preset-react',
-            ['@babel/preset-env', { targets: { node: 'current' } }],
-          ],
-        }),
-      )
+      .pipe(sourcemaps.init())
+      .pipe(babel())
       .on('error', handleError)
       .pipe(sourcemaps.write('.'))
       .pipe(gulp.dest(destination));
   });
 }
 
-function createBuildClientJSTask({
+const buildClientBabelOpts = {
+  babelrc: false,
+  presets: [
+    ['@babel/preset-env', { targets: { browsers: browsersListBrowsers } }],
+    '@babel/preset-typescript',
+    '@babel/preset-react',
+  ],
+  plugins: [
+    ['@babel/plugin-proposal-decorators', { legacy: true }],
+    ['@babel/plugin-proposal-class-properties', { loose: true }],
+    ['import', { libraryName: 'antd', style: true }],
+  ],
+};
+
+function createBuildClientJSWebpackTask(
   name,
-  sourceFile,
-  destFile,
-  destDir,
-  production = false,
-  watch = false,
-  checkTypescript = false,
-  vendorPackages = [],
-  ignorePackages = [],
-}) {
-  gulp.task(name, function() {
+  {
+    sourceFile,
+    destFile,
+    destDir,
+    cssDestDir,
+    production = false,
+    watch = false,
+  },
+) {
+  const commonCssLoaders = [
+    { loader: MiniCssExtractPlugin.loader },
+    {
+      loader: 'css-loader',
+      options: {
+        importLoaders: 2, // Indicates both post-css and sass-loaders are used before this
+        sourceMap: !production,
+      },
+    },
+    {
+      loader: 'postcss-loader',
+      options: {
+        ident: 'postcss',
+        plugins: [autoprefixer({ browsers: browsersListBrowsers })],
+        sourceMap: !production,
+        map: { inline: true },
+      },
+    },
+  ];
+
+  const webpackConfig = {
+    mode: production ? 'production' : 'development',
+    output: { filename: destFile },
+    watch,
+    devtool: production ? false : 'cheap-module-eval-source-map',
+    resolve: {
+      extensions: ['.wasm', '.mjs', '.js', '.json', '.ts', '.tsx'],
+    },
+    module: {
+      rules: [
+        {
+          test: /\.(js|jsx|mjs|ts|tsx)$/,
+          exclude: /node_modules/,
+          use: [
+            {
+              loader: 'babel-loader',
+              options: Object.assign({}, buildClientBabelOpts, {
+                cacheDirectory: true,
+              }),
+            },
+          ],
+        },
+        {
+          test: /\.s?css$/,
+          use: commonCssLoaders.concat([
+            AntdScssThemePlugin.themify({
+              loader: 'sass-loader',
+              options: { sourceMap: !production },
+            }),
+          ]),
+        },
+        {
+          test: /\.less$/,
+          use: commonCssLoaders.concat([
+            AntdScssThemePlugin.themify({
+              loader: 'less-loader',
+              options: { javascriptEnabled: true, sourceMap: !production },
+            }),
+          ]),
+        },
+      ],
+    },
+    plugins: [
+      new ExtraWatchWebpackPlugin({
+        files: ['client/style/AntdVariables.scss'],
+      }),
+      new AntdScssThemePlugin('client/style/AntdVariables.scss'),
+      new MiniCssExtractPlugin({
+        filename: '[name].css',
+        chunkFilename: '[name]-[id].css',
+        sourceMap: !production,
+      }),
+      // new ForkTsCheckerWebpackPlugin({
+      //   checkSyntacticErrors: true,
+      //   tslint: true,
+      // }),
+    ],
+  };
+
+  if (production) {
+    webpackConfig.optimization = {
+      minimizer: [
+        new UglifyJsPlugin({
+          cache: true,
+          parallel: true,
+          sourceMap: true,
+        }),
+        new OptimizeCSSAssetsPlugin({}),
+      ],
+    };
+  } else {
+    // This is to generate sourcemaps for CSS files; workaround from
+    // https://github.com/webpack-contrib/mini-css-extract-plugin/issues/29#issuecomment-382424129
+    webpackConfig.plugins.push(
+      new webpackLib.SourceMapDevToolPlugin({
+        filename: '[file].map',
+        exclude: ['/vendor/'],
+      }),
+    );
+  }
+
+  gulp.task(name, taskDone => {
+    let cssEmitted = false;
+    let jsEmitted = false;
+    let taskDoneCalled = false;
+
+    gulp
+      .src(sourceFile)
+      .pipe(webpack(webpackConfig))
+      .pipe(gulpIf(/\.css/, gulp.dest(cssDestDir)))
+      .pipe(gulpIf(/\.js/, gulp.dest(destDir)))
+      .pipe(
+        through.obj((file, enc, cb) => {
+          // We want to mark the task as finished as soon as the first set of
+          // files are bundled, so we don't block later tasks
+          if (file.path.match(/\.css$/)) {
+            cssEmitted = true;
+          }
+          if (file.path.match(/\.js$/)) {
+            jsEmitted = true;
+          }
+
+          if (cssEmitted && jsEmitted && !taskDoneCalled) {
+            taskDoneCalled = true;
+            taskDone();
+          }
+
+          cb(null, file);
+        }),
+      );
+  });
+}
+
+function createBuildClientJSBrowserifyTask(
+  name,
+  {
+    sourceFile,
+    destFile,
+    destDir,
+    production = false,
+    watch = false,
+    checkTypescript = false,
+    vendorPackages = [],
+    ignorePackages = [],
+  },
+) {
+  gulp.task(name, () => {
     const b = browserify(sourceFile, {
       extensions: ['.js', '.json', '.ts', '.tsx'],
       debug: !production,
@@ -87,28 +267,22 @@ function createBuildClientJSTask({
       b.plugin(tsify);
     }
 
-    b.transform(babelify, {
-      extensions: ['.js', '.json', '.ts', '.tsx'],
-      presets: [
-        ['@babel/preset-env', { targets: { browsers: ['> 0.5%'] } }],
-        '@babel/preset-typescript',
-        '@babel/preset-react',
-      ],
-      plugins: [
-        ['@babel/plugin-proposal-decorators', { legacy: true }],
-        ['@babel/plugin-proposal-class-properties', { loose: true }],
-      ],
-    });
+    b.transform(
+      babelify,
+      Object.assign({}, buildClientBabelOpts, {
+        extensions: ['.js', '.json', '.ts', '.tsx'],
+      }),
+    );
 
     if (production) {
       b.plugin(tinyify);
     }
 
-    vendorPackages.forEach(function(package) {
-      b.external(package);
+    vendorPackages.forEach(pkg => {
+      b.external(pkg);
     });
-    ignorePackages.forEach(function(package) {
-      b.ignore(package);
+    ignorePackages.forEach(pkg => {
+      b.ignore(pkg);
     });
 
     function bundle(rebundle) {
@@ -120,15 +294,15 @@ function createBuildClientJSTask({
         .pipe(gulp.dest(destDir));
 
       if (rebundle) {
-        stream.on('end', function() {
-          console.log('Rebundled ' + destFile);
+        stream.on('end', () => {
+          console.info('Rebundled ' + destFile);
         });
       }
 
       return stream;
     }
 
-    b.on('update', function() {
+    b.on('update', () => {
       bundle(true);
     });
 
@@ -137,8 +311,8 @@ function createBuildClientJSTask({
 }
 
 function createWatchTask(name, watchGlobs) {
-  gulp.task(name, function(cb) {
-    Object.keys(watchGlobs).forEach(function(taskName) {
+  gulp.task(name, cb => {
+    Object.keys(watchGlobs).forEach(taskName => {
       const glob = watchGlobs[taskName];
       gulp.watch(glob, [taskName]);
     });
@@ -147,7 +321,7 @@ function createWatchTask(name, watchGlobs) {
 }
 
 function createRevRenameTask(name, glob, dest, manifestDest, production) {
-  gulp.task(name, function(cb) {
+  gulp.task(name, () => {
     if (production) {
       return gulp
         .src(glob)
@@ -168,12 +342,12 @@ function createBuildViewsTask({
   production = false,
   watchGlobs = undefined,
 }) {
-  gulp.task('build-views', function buildViews() {
+  gulp.task('build-views', () => {
     if (watchGlobs) {
       watchGlobs[name] = glob;
     }
 
-    var ret = gulp.src(glob);
+    let ret = gulp.src(glob);
     if (production && revManifestPath) {
       ret = ret.pipe(
         revReplace({
@@ -201,8 +375,8 @@ function createBuildSassTask(
     watchGlobs[name] = glob;
   }
 
-  gulp.task(name, function() {
-    var stream = gulp.src(glob);
+  gulp.task(name, () => {
+    let stream = gulp.src(glob);
 
     if (!production) {
       stream = stream.pipe(sourcemaps.init());
@@ -227,7 +401,7 @@ function createCopyGulpTask(taskName, globs, destDir, watchGlobsVar) {
     watchGlobsVar[taskName] = globs;
   }
 
-  gulp.task(taskName, function() {
+  gulp.task(taskName, () => {
     return gulp
       .src(globs)
       .pipe(cache(taskName))
@@ -235,9 +409,18 @@ function createCopyGulpTask(taskName, globs, destDir, watchGlobsVar) {
   });
 }
 
+function createCreateDirectoriesGulpTask(taskName, directories) {
+  gulp.task(taskName, () => {
+    directories.forEach(dir => {
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+    });
+  });
+}
+
 function createRunServerTask(name, script, watchDirs, env = {}) {
-  gulp.task(name, cb => {
-    livereload.listen();
+  gulp.task(name, () => {
     nodemon({
       script: script,
       ext: 'js json ejs css jpg png',
@@ -246,24 +429,32 @@ function createRunServerTask(name, script, watchDirs, env = {}) {
       watch: watchDirs,
       stdout: false,
     }).on('readable', function() {
-      this.stdout.on('data', function(chunk) {
-        if (/^Express server listening on port/.test(chunk)) {
-          livereload.changed(path.join(__dirname, 'server'));
-        }
-      });
       this.stdout.pipe(process.stdout);
       this.stderr.pipe(process.stderr);
     });
   });
 }
 
+function createSyncTask(name, srcGlobs, rsyncOptions) {
+  gulp.task(name, () =>
+    gulp
+      .src(srcGlobs)
+      .pipe(cache(name))
+      .pipe(rsync(rsyncOptions)),
+  );
+}
+
 module.exports = {
-  createBuildClientJSTask,
+  createCheckServerJSTask,
   createBuildServerJSTask,
+  createBuildClientJSWebpackTask,
+  createBuildClientJSBrowserifyTask,
   createWatchTask,
   createRevRenameTask,
   createBuildViewsTask,
   createBuildSassTask,
   createCopyGulpTask,
+  createCreateDirectoriesGulpTask,
   createRunServerTask,
+  createSyncTask,
 };

@@ -1,7 +1,16 @@
 import Sequelize from 'sequelize';
-import db from '../db';
+import db from '../libs/db';
 
-const Session = db.define(
+export interface SessionAttributes {
+  id?: number;
+  expires: number;
+  data: string;
+}
+
+export type SessionInstance = Sequelize.Instance<SessionAttributes> &
+  SessionAttributes;
+
+const Session = db.define<SessionInstance, SessionAttributes>(
   'Session',
   {
     id: {

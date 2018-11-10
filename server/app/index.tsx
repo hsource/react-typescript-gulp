@@ -1,4 +1,3 @@
-// @flow
 import express, { Request, Response } from 'express';
 import React from 'react';
 import { renderToString } from 'react-dom/server';
@@ -6,9 +5,11 @@ import { StaticRouter } from 'react-router-dom';
 import { Provider } from 'mobx-react';
 import stringify from 'json-stringify-safe';
 
-import logger from './libs/logger';
+import { logger } from '../libs/logger';
+import { getUserOutput } from '../libs/auth';
 import { MainStore } from '../../client/js/stores/Main';
 import MainPage from '../../client/templates/MainPage';
+import { SerializedUser } from '../../common/types';
 
 const router = express.Router();
 
@@ -19,7 +20,13 @@ const router = express.Router();
  * @return store to use, or null if redirected
  */
 async function loadData(req: Request) {
-  const store = new MainStore();
+  const storeData = {
+    auth: {
+      user: req.user && (getUserOutput(req.user) as SerializedUser),
+    },
+  };
+
+  const store = new MainStore(storeData);
 
   return {
     store,
@@ -32,9 +39,9 @@ async function loadData(req: Request) {
 
 function handleRequest(req: Request, res: Response) {
   const loadDataStart = Date.now();
+
   loadData(req)
     .then(result => {
-      console.log(`Load data: ${Date.now() - loadDataStart}`);
       if (!result) return; // We got redirected
       const { store, title, keywords, description, fbImage } = result;
 

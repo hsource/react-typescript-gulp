@@ -1,20 +1,27 @@
-// @flow
 import Sequelize from 'sequelize';
-import bcrypt from 'bcryptjs';
+import { hash, compare } from 'bcryptjs';
 
-import db from '../db';
+import db from '../libs/db';
 
-const User = db.define(
+export interface UserAttributes {
+  id?: number;
+  email: string;
+  username: string;
+  role: 'Normal' | 'Administrator';
+  password: string;
+  activationKey: string;
+  activated: boolean;
+}
+
+export type UserInstance = Sequelize.Instance<UserAttributes> & UserAttributes;
+
+const User = db.define<UserInstance, UserAttributes>(
   'User',
   {
     id: {
       type: Sequelize.INTEGER.UNSIGNED,
       primaryKey: true,
       autoIncrement: true,
-    },
-    accountId: {
-      type: Sequelize.INTEGER.UNSIGNED,
-      allowNull: false,
     },
     email: {
       type: Sequelize.STRING(128),
@@ -41,10 +48,15 @@ const User = db.define(
         is: {
           args: /^\w[\w-]*\w$/,
           msg:
-            'Your username must only contain numbers, letters, and dashes (-) ' +
-            'and be at least 2 characters long',
+            'Your username must only contain numbers, letters, and dashes (-) and be at least 2 characters long',
         },
       },
+    },
+
+    role: {
+      type: Sequelize.ENUM('Normal', 'Administrator'),
+      allowNull: false,
+      defaultValue: 'Normal',
     },
     password: {
       type: Sequelize.STRING(60),
@@ -55,11 +67,6 @@ const User = db.define(
     },
     activationKey: { type: Sequelize.STRING(8), allowNull: false },
     activated: { type: Sequelize.BOOLEAN, defaultValue: 0, allowNull: false },
-    apiElementModifyTime: {
-      type: Sequelize.INTEGER,
-      defaultValue: 0,
-      allowNull: false,
-    },
   },
   {
     indexes: [
@@ -68,16 +75,21 @@ const User = db.define(
         fields: ['email'],
         unique: true,
       },
+      {
+        name: 'username',
+        fields: ['username'],
+        unique: true,
+      },
     ],
   },
 );
 
 export function hashPassword(password: string) {
-  return bcrypt.hashSync(password, 10);
+  return hash(password, 10);
 }
 
 export function comparePassword(password: string, hash: string) {
-  return bcrypt.compareSync(password, hash);
+  return compare(password, hash);
 }
 
 export default User;
