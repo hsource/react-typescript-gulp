@@ -14,13 +14,13 @@ export interface SerializedUser {
 
 export interface SuccessResponse {
   success: true;
-  messages: string[];
-  data: any;
+  messages: React.ReactNode[];
+  data?: any;
 }
 
 export interface FailedResponse {
   success: false;
-  messages: string[];
+  messages: React.ReactNode[];
   errTypes: string[];
 }
 

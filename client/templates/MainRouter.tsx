@@ -1,6 +1,7 @@
 import React from 'react';
 import { Provider } from 'mobx-react';
 import { BrowserRouter } from 'react-router-dom';
+import { ScrollContext } from 'react-router-scroll-4';
 import { MainStore } from '../js/stores/Main';
 import MainPage from './MainPage';
 
@@ -19,7 +20,9 @@ export default class MainRouter extends React.Component {
     return (
       <Provider store={store}>
         <BrowserRouter>
-          <MainPage />
+          <ScrollContext>
+            <MainPage />
+          </ScrollContext>
         </BrowserRouter>
       </Provider>
     );

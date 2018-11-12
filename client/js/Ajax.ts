@@ -5,7 +5,7 @@ import { FailedResponse, Response } from '../../common/types';
 
 /** Error used to represent user-facing errors from the server */
 export class ApplicationError extends Error {
-  messages: string[];
+  messages: React.ReactNode[];
   errTypes: string[];
 
   constructor(response: FailedResponse) {

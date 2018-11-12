@@ -9,7 +9,8 @@ const {
   createCreateDirectoriesGulpTask,
   createCopyGulpTask,
   createRunServerTask,
-  createSyncTask,
+  // createSyncTask,
+  createDeleteTask,
 } = require('./gulpfile.lib');
 
 const serverWatchGlobs = {};
@@ -20,9 +21,9 @@ const production = process.env.NODE_ENV === 'production';
 // Base client tasks
 const buildClientJSWebpackArgs = {
   sourceFile: 'client/js/InitWeb.ts',
-  destDir: 'dist/client/js',
+  destDir: 'dist/app/server/public/js',
   destFile: 'main.js',
-  cssDestDir: 'dist/client/assets',
+  cssDestDir: 'dist/app/server/public/assets',
   production,
   watch: false,
 };
@@ -39,7 +40,7 @@ createBuildClientJSWebpackTask(
 createCopyGulpTask(
   'copy-assets',
   'client/assets/{**/*,*}',
-  'dist/client/assets',
+  'dist/app/server/public/assets',
   clientWatchGlobs,
 );
 
@@ -62,9 +63,9 @@ createBuildServerJSTask({
 
 createRevRenameTask(
   'rev-rename-client',
-  'dist/client/{js/main.js,assets/main.css}',
-  'dist/client',
-  'dist/client/js',
+  'dist/app/server/public/{js/main.js,assets/main.css}',
+  'dist/app/server/public',
+  'dist/app/server/public/js',
   production,
 );
 
@@ -72,16 +73,9 @@ createBuildViewsTask({
   name: 'build-views',
   glob: 'server/views/*.ejs',
   dest: 'dist/app/server/views',
-  revManifestPath: 'dist/client/js/rev-manifest.json',
+  revManifestPath: 'dist/app/server/public/js/rev-manifest.json',
   production,
 });
-
-createCopyGulpTask(
-  'copy-client',
-  'dist/client/{assets/**/*,assets/*,docs/*,js/*}',
-  'dist/app/server/public',
-  serverWatchGlobs,
-);
 
 createCopyGulpTask(
   'copy-static',
@@ -92,7 +86,7 @@ createCopyGulpTask(
 
 gulp.task(
   'rename-and-copy-client',
-  gulpSequence('rev-rename-client', 'copy-client', 'build-views'),
+  gulpSequence('rev-rename-client', 'build-views'),
 );
 
 createCreateDirectoriesGulpTask('create-log-dir', ['dist/app/server/logs']);
@@ -119,6 +113,8 @@ createRunServerTask(
   env,
 );
 createWatchTask('start-watching-server', serverWatchGlobs);
+
+createDeleteTask('clean', 'dist');
 
 gulp.task(
   'watch-server',

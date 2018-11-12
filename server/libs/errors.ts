@@ -50,7 +50,7 @@ export class ResponseError extends ApplicationError {
       })),
     );
 
-    super(errorFields);
+    super(errorFields as any);
     this.response = response;
   }
 }

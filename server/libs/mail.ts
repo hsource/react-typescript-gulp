@@ -40,7 +40,7 @@ export const sendMail: typeof transporter.sendMail = promisify(
  * @return function(templateData) { return rendered; }
  */
 function compileTemplate(filePath: string) {
-  const files = glob.sync(`${filePath}`);
+  const files = glob.sync(`${filePath}*`);
   if (!files || !files.length) {
     return () => '';
   }
@@ -55,7 +55,12 @@ function compileTemplate(filePath: string) {
       console.error(`Error while compiling ${file}`);
       throw err;
     }
-  } else if (extension === '.js') {
+  } else if (
+    extension === '.js' ||
+    extension === '.ts' ||
+    extension === '.jsx' ||
+    extension === '.tsx'
+  ) {
     // React
     let reactObj = require(file); // eslint-disable-line global-require, import/no-dynamic-require
     if (reactObj && reactObj.default) {

@@ -130,25 +130,13 @@ router.post('/register', checkPasswordLength, async (req, res) => {
       ? 'You have successfully signed up! We have sent an activation email to your email address. In the meantime, you can start DOING BLAH (FILL THIS IN) without activating.'
       : 'You have successfully signed up! We have automatically activated your account because our email systems are currently not working.';
 
-    // Immediately log in if possible
-    try {
-      await login(req, user);
-      res.json({
-        messages: [message],
-        user: auth.getUserOutput(user),
-      });
-    } catch (err) {
-      console.error(err);
-      res.json({
-        success: true,
-        isLoggedIn: false,
-        messages: [
-          message,
-          'Please sign in with your newly-created account to get started.',
-        ],
-      });
-      logger.error('Login failed', { err });
-    }
+    // Immediately log in
+    await login(req, user);
+    res.json({
+      success: true,
+      messages: [message],
+      user: auth.getUserOutput(user),
+    });
   } catch (err) {
     defaultCatch(res)(err);
   }
@@ -160,16 +148,15 @@ router.post('/login', (req, res, next) => {
     {
       badRequestMessage: 'Please enter your email/username and password',
     } as any,
-    async (err: Error | null, user: UserInstance | null, info: any) => {
+    async (err: Error | null, user: UserInstance | null) => {
       if (user) {
         try {
           await login(req, user);
-          res.json(
-            _.assign({
-              messages: ['You have successfully signed in'],
-              user: auth.getUserOutput(user),
-            }),
-          );
+          res.json({
+            success: true,
+            messages: ['You have successfully signed in'],
+            user: auth.getUserOutput(user),
+          });
         } catch (err) {
           res.json({
             success: false,
@@ -180,7 +167,7 @@ router.post('/login', (req, res, next) => {
       } else {
         res.json({
           success: false,
-          messages: [info.message],
+          messages: [(err as Error).message],
         });
       }
     },
@@ -238,49 +225,28 @@ router.post('/logout', (req, res) => {
   res.json(successResponse);
 });
 
-router.post('/activate/:username/:activationKey', async (req, res) => {
-  try {
-    const user = await User.findOne({
-      where: { username: req.params.username },
-      attributes: ['id', 'username', 'activated', 'activationKey'],
-    });
+router.get('/confirm/:email/:activationKey', async (req, res) => {
+  const user = await User.findOne({
+    where: { email: req.params.email },
+    attributes: ['id', 'email', 'activated', 'activationKey'],
+  });
 
-    if (!user) {
-      throw new ApplicationError([
-        {
-          message:
-            'We could not find the given user; please make sure you followed the link emailed to you exactly',
-          type: 'userNotFound',
-        },
-      ]);
-      return;
-    }
-
-    if (user.activationKey !== req.params.activationKey) {
-      throw new ApplicationError([
-        {
-          message:
-            'The activation key is incorrect; please make sure you followed the link emailed to you exactly',
-          type: 'wrongActivationKey',
-        },
-      ]);
+  if (!user || user.activationKey !== req.params.activationKey) {
+    res.redirect('/?message=activationFailed');
+  } else {
+    if (!user.activated) {
+      await login(req, user);
     }
 
     user.activated = true;
     await user.save();
-    res.json({
-      success: true,
-      messages: ['Your account has been activated'],
-    });
-  } catch (err) {
-    defaultCatch(res)(err);
+    res.redirect('/?message=activated');
   }
 });
 
 router.post('/startResetPassword', async (req, res) => {
   try {
     const email = req.body.email;
-    const username = req.body.username;
 
     const errors = [];
     if (!email) {
@@ -289,15 +255,9 @@ router.post('/startResetPassword', async (req, res) => {
         type: 'emptyEmail',
       });
     }
-    if (!username) {
-      errors.push({
-        message: "Please enter the account's username",
-        type: 'emptyUsername',
-      });
-    }
 
     const user = await User.findOne({
-      where: { username, email },
+      where: { email },
       attributes: ['id', 'username', 'email'],
     });
 
@@ -319,6 +279,7 @@ router.post('/startResetPassword', async (req, res) => {
     try {
       await mail.send(user.email, 'resetPassword', {
         username: user.username,
+        email: user.email,
         token: token.token,
       });
     } catch (err) {

@@ -1,64 +1,67 @@
 import * as React from 'react';
-import { Layout, Menu, Row, Col, Icon } from 'antd';
+import { Navbar, NavbarBrand, Collapse, NavbarToggler, Nav } from 'reactstrap';
 import { Link, withRouter, RouteComponentProps } from 'react-router-dom';
 import Routes from './Routes';
 import { withAuth, AuthInjectedProps } from '../js/stores/Auth';
-
-const { Header, Content } = Layout;
+import NavbarUser from './NavbarUser';
 
 type Props = AuthInjectedProps & RouteComponentProps<any>;
 
-class MainPage extends React.PureComponent<Props> {
+type State = {
+  expanded: boolean;
+};
+
+class MainPage extends React.Component<Props, State> {
+  state = { expanded: false };
+
   handleLogout = (event: React.MouseEvent<HTMLAnchorElement>) => {
     event.preventDefault();
     this.props.logout();
   };
 
+  toggleNavbar = () => {
+    this.setState({ expanded: !this.state.expanded });
+  };
+
   render() {
-    const { user, userLoading } = this.props;
+    const { location } = this.props;
+    const { expanded } = this.state;
 
     return (
-      <Layout className="layout">
-        <Header>
-          <Row>
-            <Col span={12}>
-              <Link to="/">MySite</Link>
-            </Col>
-            <Col span={12}>
-              <Menu
-                theme="light"
-                mode="horizontal"
-                style={{ lineHeight: '64px', float: 'right' }}
-              >
-                {user ? (
-                  <Menu.Item key="signOut">
-                    {userLoading ? (
-                      <em>Loading…</em>
-                    ) : (
-                      <a href="#signOut" onClick={this.handleLogout}>
-                        Sign out
-                      </a>
-                    )}
-                  </Menu.Item>
-                ) : (
-                  <Menu.Item key="signIn">
-                    <Link to="/register">Sign in or register</Link>
-                  </Menu.Item>
-                )}
-              </Menu>
-            </Col>
-          </Row>
-        </Header>
-        <Content style={{ padding: '25px 50px' }}>
-          <Routes location={this.props.location} />{' '}
-        </Content>
-      </Layout>
+      <div>
+        <Navbar dark color="dark" fixed="top" expand="md">
+          <div className="container">
+            <NavbarBrand tag={Link} to="/">
+              YOUR_SITE_NAME
+            </NavbarBrand>
+            <NavbarToggler onClick={this.toggleNavbar} className="mr-2" />
+            <Collapse isOpen={expanded} navbar>
+              <Nav navbar className="mr-auto" />
+              <Nav navbar>
+                {/* Here, we need to pass `location` or else `PureComponent` prevents route updates */}
+                <NavbarUser location={location} />
+              </Nav>
+            </Collapse>
+          </div>
+        </Navbar>
+
+        <div className="navbar-offset">
+          {/* Here, we need to pass `location` or else `PureComponent` prevents route updates */}
+          <Routes location={location} />
+        </div>
+
+        <footer className="footer">
+          <div className="container">
+            <span className="pull-left">Created by YOUR NAME</span>
+            <span className="pull-left" style={{ marginLeft: 20 }}>
+              Email: email@example.com
+            </span>
+          </div>
+        </footer>
+      </div>
     );
   }
 }
 
 // This weird typing is to avoid a strange error in server/app/index.tss
-export default (withAuth(withRouter(MainPage)) as any) as React.ComponentClass<
-  {},
-  any
->;
+export default withRouter(withAuth(MainPage)) as React.ComponentClass<{}>;

@@ -83,7 +83,7 @@ export function initializePassport(passport: PassportStatic) {
           ]);
         }
 
-        const matched = comparePassword(password, user.password);
+        const matched = await comparePassword(password, user.password);
         if (!matched) {
           throw new ApplicationError([
             {

@@ -46,7 +46,7 @@ const dbDetails = {
 const DEFAULT_WEB_PORT = 31765;
 
 const config = {
-  siteName: 'HotelPrice',
+  siteName: 'MySite',
   web: {
     port: process.env.WEB_PORT || DEFAULT_WEB_PORT,
     host: process.env.WEB_HOST || `localhost:${DEFAULT_WEB_PORT}`,

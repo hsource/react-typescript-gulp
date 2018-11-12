@@ -1,10 +1,14 @@
 import React, { ReactNode } from 'react';
 
-type Props = {
-  config: {
-    host: string;
-    siteName: string;
+export interface Config {
+  web: {
+    linkHost: string;
   };
+  siteName: string;
+}
+
+type Props = {
+  config: Config;
   children?: ReactNode;
   style?: string;
 };
@@ -23,7 +27,10 @@ export default class BaseEmail extends React.Component<Props> {
             <tbody>
               <tr>
                 <td style={{ paddingRight: '10px' }}>
-                  <img src={`${config.host}/assets/email-logo.png`} alt="" />
+                  <img
+                    src={`${config.web.linkHost}/assets/email-logo.png`}
+                    alt=""
+                  />
                 </td>
                 <td>
                   <h1>{config.siteName}</h1>

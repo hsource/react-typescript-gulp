@@ -16,6 +16,7 @@ const watchify = require('watchify');
 const rsync = require('gulp-rsync');
 const revReplace = require('gulp-rev-replace');
 const fs = require('fs');
+const del = require('del');
 
 const babelify = require('babelify');
 const browserify = require('browserify');
@@ -23,8 +24,6 @@ const tinyify = require('tinyify');
 const tsify = require('tsify');
 
 const autoprefixer = require('autoprefixer');
-const ExtraWatchWebpackPlugin = require('extra-watch-webpack-plugin');
-const AntdScssThemePlugin = require('antd-scss-theme-plugin');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 // const ForkTsCheckerWebpackPlugin = require('fork-ts-checker-webpack-plugin');
 const OptimizeCSSAssetsPlugin = require('optimize-css-assets-webpack-plugin');
@@ -90,7 +89,6 @@ const buildClientBabelOpts = {
   plugins: [
     ['@babel/plugin-proposal-decorators', { legacy: true }],
     ['@babel/plugin-proposal-class-properties', { loose: true }],
-    ['import', { libraryName: 'antd', style: true }],
   ],
 };
 
@@ -150,28 +148,24 @@ function createBuildClientJSWebpackTask(
         {
           test: /\.s?css$/,
           use: commonCssLoaders.concat([
-            AntdScssThemePlugin.themify({
+            {
               loader: 'sass-loader',
               options: { sourceMap: !production },
-            }),
+            },
           ]),
         },
         {
           test: /\.less$/,
           use: commonCssLoaders.concat([
-            AntdScssThemePlugin.themify({
+            {
               loader: 'less-loader',
               options: { javascriptEnabled: true, sourceMap: !production },
-            }),
+            },
           ]),
         },
       ],
     },
     plugins: [
-      new ExtraWatchWebpackPlugin({
-        files: ['client/style/AntdVariables.scss'],
-      }),
-      new AntdScssThemePlugin('client/style/AntdVariables.scss'),
       new MiniCssExtractPlugin({
         filename: '[name].css',
         chunkFilename: '[name]-[id].css',
@@ -444,6 +438,18 @@ function createSyncTask(name, srcGlobs, rsyncOptions) {
   );
 }
 
+/**
+ * Get a gulp task to delete all items at a certain path
+ * @param {string|string[]} globs
+ * @return Promise.<void>
+ */
+function createDeleteTask(name, globs) {
+  gulp.task(name, () => {
+    globs = globs instanceof Array ? globs : [globs];
+    return del(globs);
+  });
+}
+
 module.exports = {
   createCheckServerJSTask,
   createBuildServerJSTask,
@@ -457,4 +463,5 @@ module.exports = {
   createCreateDirectoriesGulpTask,
   createRunServerTask,
   createSyncTask,
+  createDeleteTask,
 };

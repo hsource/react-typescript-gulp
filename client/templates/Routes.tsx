@@ -3,6 +3,8 @@ import { Route, Switch } from 'react-router';
 
 import HomePage from './HomePage';
 import { Location } from 'history';
+import LoginPage from './LoginPage';
+import ResetPasswordPage from './ResetPasswordPage';
 
 export type Props = { location: Location };
 
@@ -13,6 +15,13 @@ export default class Routes extends React.PureComponent<Props> {
         <Switch>
           <Route exact path="/" component={HomePage} />
           <Route path="/index" component={HomePage} />
+          <Route path="/login" component={LoginPage} />
+          <Route path="/register" component={LoginPage} />
+          <Route path="/resetPassword" component={LoginPage} exact />
+          <Route
+            path="/resetPassword/:email/:token"
+            component={ResetPasswordPage}
+          />
 
           {/* 404 fall-through */}
           <Route path="*" component={HomePage} />

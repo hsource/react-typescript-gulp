@@ -1,7 +1,13 @@
 import { inject } from 'mobx-react';
 import { observable, action } from 'mobx';
 import { SerializedUser } from '../../../common/types';
-import { getLoggedInUser, logout } from '../User';
+import {
+  getLoggedInUser,
+  logout,
+  login,
+  RegistrationData,
+  register,
+} from '../User';
 
 export interface AuthStoreData {
   user?: SerializedUser;
@@ -45,6 +51,24 @@ export class AuthStore {
   };
 
   @action
+  login = async (usernameOrEmail: string, password: string) => {
+    return this.withLoading(async () => {
+      const user = await login(usernameOrEmail, password);
+      this.user = user;
+      return user;
+    });
+  };
+
+  @action
+  register = (userData: RegistrationData) => {
+    return this.withLoading(async () => {
+      const user = await register(userData);
+      this.user = user;
+      return user;
+    });
+  };
+
+  @action
   logout = async () => {
     return this.withLoading(async () => {
       await logout();
@@ -57,14 +81,32 @@ export interface AuthInjectedProps {
   user?: SerializedUser | null;
   userLoading: boolean;
   userError: string | null;
+  login: (usernameOrEmail: string, password: string) => Promise<void>;
   refreshUser: () => Promise<SerializedUser | null>;
+  register: (user: RegistrationData) => Promise<SerializedUser | null>;
   logout: () => Promise<void>;
 }
 
 export const withAuth = inject(
   ({ store: { auth } }): AuthInjectedProps => {
     const authStore = auth as AuthStore;
-    const { user, userLoading, userError, refreshUser, logout } = authStore;
-    return { user, userLoading, userError, refreshUser, logout };
+    const {
+      user,
+      userLoading,
+      userError,
+      refreshUser,
+      login,
+      register,
+      logout,
+    } = authStore;
+    return {
+      user,
+      userLoading,
+      userError,
+      refreshUser,
+      login,
+      register,
+      logout,
+    };
   },
 );
